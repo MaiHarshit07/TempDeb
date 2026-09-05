@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum TopicStatus {
+  ACTIVE
+  LOCKED
+  REMOVED
+}
+
+enum CommentStatus {
+  ACTIVE
+  REMOVED
+}
+
+enum VoteType {
+  UP
+  DOWN
+}
+
+enum NotificationType {
+  TOPIC_UPVOTED
+  TOPIC_DOWNVOTED
+  COMMENT_ADDED
+  COMMENT_UPVOTED
+  COMMENT_DOWNVOTED
+  REPLY_RECEIVED
+  MODERATION_ACTION
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE
+  MISINFORMATION
+  INAPPROPRIATE_CONTENT
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
+}
+
+model User {
+  id              String      @id @default(uuid())
+  username        String      @unique
+  displayName     String
+  email           String      @unique
+  passwordHash    String
+  bio             String?
+  avatar          String?
+  role            Role        @default(USER)
+  activityTokens  Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  topics          Topic[]
+  comments        Comment[]
+  votes           Vote[]
+  notifications   Notification[] @relation("NotificationRecipient")
+  actorNotifications Notification[] @relation("NotificationActor")
+  reports         Report[]
+  activities      Activity[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  topics      Topic[]
+}
+
+model Topic {
+  id          String      @id @default(uuid())
+  title       String
+  description String
+  authorId    String
+  categoryId  String?
+  status      TopicStatus @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  author      User        @relation(fields: [authorId], references: [id])
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  comments    Comment[]
+  votes       Vote[]
+  notifications Notification[]
+  reports     Report[]
+  activities  Activity[]
+}
+
+model Comment {
+  id              String        @id @default(uuid())
+  content         String
+  authorId        String
+  topicId         String
+  parentCommentId String?
+  status          CommentStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  author          User          @relation(fields: [authorId], references: [id])
+  topic           Topic         @relation(fields: [topicId], references: [id])
+  parentComment   Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[]     @relation("CommentReplies")
+  votes           Vote[]
+  notifications   Notification[]
+  reports         Report[]
+}
+
+model Vote {
+  id        String    @id @default(uuid())
+  userId    String
+  topicId   String?
+  commentId String?
+  type      VoteType
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  topic     Topic?    @relation(fields: [topicId], references: [id])
+  comment   Comment?  @relation(fields: [commentId], references: [id])
+
+  @@unique([userId, topicId])
+  @@unique([userId, commentId])
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  recipientId String
+  actorId     String?
+  type        NotificationType
+  topicId     String?
+  commentId   String?
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id])
+  topic       Topic?           @relation(fields: [topicId], references: [id])
+  comment     Comment?         @relation(fields: [commentId], references: [id])
+}
+
+model Activity {
+  id        String   @id @default(uuid())
+  userId    String
+  topicId   String?
+  type      String
+  amount    Int      @default(0)
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  topic     Topic?   @relation(fields: [topicId], references: [id])
+}
+
+model Report {
+  id         String      @id @default(uuid())
+  reporterId String
+  topicId    String?
+  commentId  String?
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime    @default(now())
+
+  reporter   User        @relation(fields: [reporterId], references: [id])
+  topic      Topic?      @relation(fields: [topicId], references: [id])
+  comment    Comment?    @relation(fields: [commentId], references: [id])
+}
