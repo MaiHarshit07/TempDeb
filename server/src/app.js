@@ -26,16 +26,33 @@ const prisma = new PrismaClient();
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
 
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-].filter(Boolean);
+const normalizeOrigin = (value) => value?.trim().replace(/\/$/, "") || null;
+const allowedOrigins = new Set(
+  [process.env.CLIENT_URL, "http://localhost:5173", "http://127.0.0.1:5173"]
+    .map(normalizeOrigin)
+    .filter(Boolean),
+);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return true;
+
+  if (allowedOrigins.has(normalized)) return true;
+
+  return (
+    /^https?:\/\/localhost(?::\d+)?$/i.test(normalized) ||
+    /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(normalized) ||
+    /^https:\/\/[-a-z0-9]+\.onrender\.com$/i.test(normalized) ||
+    /^https:\/\/[-a-z0-9]+\.vercel\.app$/i.test(normalized)
+  );
+};
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
         return;
       }
@@ -43,6 +60,8 @@ app.use(
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 app.use(express.json({ limit: "1mb" }));
