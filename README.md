@@ -38,24 +38,6 @@ A production-style debate and discussion platform built with React, Vite, Expres
    - `cd client`
    - `npm run dev`
 
-## Environment variables
-
-Create `/server/.env` with:
-
-```env
-PORT=5000
-CLIENT_URL=http://localhost:5173
-JWT_SECRET=replace-with-a-strong-secret
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/debate_platform?schema=public"
-MODERATOR_TOKEN_THRESHOLD=1000
-```
-
-For the client, optionally create `/client/.env` to point at a different API:
-
-```env
-VITE_API_URL=http://localhost:5000/api
-```
-
 ## Prisma
 
 ```bash
