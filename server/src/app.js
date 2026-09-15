@@ -36,6 +36,7 @@ app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
+    skip: (req) => req.method === "GET" || req.method === "HEAD",
     standardHeaders: true,
     legacyHeaders: false,
   }),

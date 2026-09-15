@@ -13,12 +13,14 @@ const listNotifications = async (req, res) => {
 };
 
 const markNotificationRead = async (req, res) => {
-  const notification = await prisma.notification.update({
-    where: { id: req.params.id },
+  const { count } = await prisma.notification.updateMany({
+    where: { id: req.params.id, recipientId: req.user.id },
     data: { isRead: true },
   });
 
-  return res.json({ success: true, data: notification });
+  if (!count) return res.status(404).json({ success: false, message: "Notification not found" });
+
+  return res.json({ success: true, data: { id: req.params.id, isRead: true } });
 };
 
 const markAllNotificationsRead = async (req, res) => {

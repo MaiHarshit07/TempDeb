@@ -1,31 +1,86 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AuthContext } from './authContextValue'
-import { fetchCurrentUser, loginUser, registerUser } from '../lib/api'
+import { fetchCurrentUser, loginUser, logoutUser, registerUser, setSessionExpiredHandler } from '../lib/api'
+
+const TOKEN_KEY = 'debate_token'
+const USER_CACHE_KEY = 'debate_user_cache'
+
+function readTokenExpiry(token) {
+  try {
+    const payload = JSON.parse(window.atob(token.split('.')[1]))
+    return payload.exp ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+function clearSession() {
+  sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(USER_CACHE_KEY)
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('debate_token')))
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(USER_CACHE_KEY) || 'null')
+    } catch {
+      return null
+    }
+  })
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const token = localStorage.getItem('debate_token')
-    if (!token) {
+    const token = sessionStorage.getItem(TOKEN_KEY)
+    const expiry = readTokenExpiry(token)
+    if (expiry && expiry <= Date.now()) {
+      window.setTimeout(() => {
+        clearSession()
+        setUser(null)
+        setLoading(false)
+      }, 0)
       return
     }
 
+    const expireSession = () => {
+      clearSession()
+      setUser(null)
+      setError('Your session expired. Please sign in again.')
+    }
+    setSessionExpiredHandler(token ? expireSession : null)
+    const timeout = expiry ? window.setTimeout(expireSession, Math.max(expiry - Date.now(), 0)) : null
+
     fetchCurrentUser()
-      .then(setUser)
+      .then((currentUser) => {
+        setUser(currentUser)
+        sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(currentUser))
+      })
       .catch(() => {
-        localStorage.removeItem('debate_token')
+        clearSession()
+        setUser(null)
       })
       .finally(() => setLoading(false))
+
+    const handleStorage = (event) => {
+      if (event.key === TOKEN_KEY && !event.newValue) {
+        setUser(null)
+        setError('You signed out in another tab.')
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      if (timeout) window.clearTimeout(timeout)
+      window.removeEventListener('storage', handleStorage)
+      setSessionExpiredHandler(null)
+    }
   }, [])
 
   const login = async (payload) => {
     setError('')
     try {
       const result = await loginUser(payload)
-      localStorage.setItem('debate_token', result.token)
+      sessionStorage.setItem(TOKEN_KEY, result.token)
+      sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user))
       setUser(result.user)
       return result.user
     } catch (requestError) {
@@ -39,7 +94,8 @@ export function AuthProvider({ children }) {
     setError('')
     try {
       const result = await registerUser(payload)
-      localStorage.setItem('debate_token', result.token)
+      sessionStorage.setItem(TOKEN_KEY, result.token)
+      sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user))
       setUser(result.user)
       return result.user
     } catch (requestError) {
@@ -49,9 +105,15 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('debate_token')
+  const logout = async () => {
+    try {
+      await logoutUser()
+    } catch {
+      // Clear the local session even if the network request cannot complete.
+    }
+    clearSession()
     setUser(null)
+    setError('')
   }
 
   const value = useMemo(() => ({ user, loading, error, login, register, logout }), [user, loading, error])

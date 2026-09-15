@@ -5,6 +5,17 @@ const { formatApiResponse } = require("../utils/helpers");
 const { MODERATOR_TOKEN_THRESHOLD } = require("../config/constants");
 
 const prisma = new PrismaClient();
+const SESSION_COOKIE = "debate_session";
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+const setSessionCookie = (res, token) => {
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    maxAge: SESSION_MAX_AGE,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+};
 
 const register = async (req, res, next) => {
   try {
@@ -44,6 +55,7 @@ const register = async (req, res, next) => {
     });
 
     const token = signToken(user.id);
+    setSessionCookie(res, token);
 
     return res.status(201).json({
       success: true,
@@ -100,6 +112,7 @@ const login = async (req, res, next) => {
     }
 
     const token = signToken(user.id);
+    setSessionCookie(res, token);
 
     return res.json({
       success: true,
@@ -121,6 +134,11 @@ const login = async (req, res, next) => {
 };
 
 const logout = async (req, res) => {
+  res.clearCookie(SESSION_COOKIE, {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
   return res.json({
     success: true,
     data: { message: "Logged out successfully" },

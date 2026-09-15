@@ -2,6 +2,19 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+const notifyVote = async ({ recipientId, actorId, type, topicId, commentId }) => {
+  if (recipientId === actorId) return;
+  await prisma.notification.create({
+    data: {
+      recipientId,
+      actorId,
+      type: commentId ? (type === "UP" ? "COMMENT_UPVOTED" : "COMMENT_DOWNVOTED") : (type === "UP" ? "TOPIC_UPVOTED" : "TOPIC_DOWNVOTED"),
+      topicId,
+      commentId,
+    },
+  });
+};
+
 const voteOnTopic = async (req, res, next) => {
   try {
     const { topicId, type } = req.body;
@@ -39,6 +52,7 @@ const voteOnTopic = async (req, res, next) => {
         where: { id: existingVote.id },
         data: { type },
       });
+      await notifyVote({ recipientId: topic.authorId, actorId: req.user.id, type, topicId });
       return res.json({
         success: true,
         data: { message: "Vote switched", vote: { type } },
@@ -52,6 +66,7 @@ const voteOnTopic = async (req, res, next) => {
         type,
       },
     });
+    await notifyVote({ recipientId: topic.authorId, actorId: req.user.id, type, topicId });
 
     return res
       .status(201)
@@ -100,6 +115,7 @@ const voteOnComment = async (req, res, next) => {
         where: { id: existingVote.id },
         data: { type },
       });
+      await notifyVote({ recipientId: comment.authorId, actorId: req.user.id, type, topicId: comment.topicId, commentId });
       return res.json({
         success: true,
         data: { message: "Vote switched", vote: { type } },
@@ -113,6 +129,7 @@ const voteOnComment = async (req, res, next) => {
         type,
       },
     });
+    await notifyVote({ recipientId: comment.authorId, actorId: req.user.id, type, topicId: comment.topicId, commentId });
 
     return res
       .status(201)

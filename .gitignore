@@ -1,11 +1,45 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Environment and secrets
 .env
 .env.*
 !.env.example
-.DS_Store
-dist
-coverage
+client/.env
+client/.env.*
+server/.env
+server/.env.*
+!.env.example
+
+# Build output
+/dist/
+/build/
+client/dist/
+coverage/
+.vite/
+
+# Local database and uploaded files
+*.sqlite
+*.sqlite3
+*.db
 server/prisma/dev.db
 server/prisma/dev.db-journal
-server/uploads
+server/uploads/
+server/.venv/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python cache (if any tooling is used)
+__pycache__/
+*.pyc

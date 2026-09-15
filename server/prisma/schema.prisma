@@ -24,6 +24,11 @@ enum CommentStatus {
   REMOVED
 }
 
+enum CommentStance {
+  FOR
+  AGAINST
+}
+
 enum VoteType {
   UP
   DOWN
@@ -74,6 +79,7 @@ model User {
   actorNotifications Notification[] @relation("NotificationActor")
   reports         Report[]
   activities      Activity[]
+  topicScores     UserTopicScore[]
 }
 
 model Category {
@@ -101,11 +107,28 @@ model Topic {
   notifications Notification[]
   reports     Report[]
   activities  Activity[]
+  userScores  UserTopicScore[]
+}
+
+model UserTopicScore {
+  id          String   @id @default(uuid())
+  userId      String
+  topicId     String
+  score       Float
+  computedAt  DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@index([userId, score])
+  @@index([userId])
 }
 
 model Comment {
   id              String        @id @default(uuid())
   content         String
+  stance          CommentStance @default(FOR)
   authorId        String
   topicId         String
   parentCommentId String?
@@ -120,6 +143,9 @@ model Comment {
   votes           Vote[]
   notifications   Notification[]
   reports         Report[]
+
+  @@index([topicId, stance])
+  @@index([parentCommentId])
 }
 
 model Vote {
@@ -137,6 +163,8 @@ model Vote {
 
   @@unique([userId, topicId])
   @@unique([userId, commentId])
+
+  @@index([topicId, createdAt])
 }
 
 model Notification {

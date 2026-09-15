@@ -4,10 +4,18 @@ const { JWT_SECRET } = require("../config/constants");
 
 const prisma = new PrismaClient();
 
+const readSessionCookie = (cookieHeader = "") => cookieHeader
+  .split(";")
+  .map((cookie) => cookie.trim())
+  .find((cookie) => cookie.startsWith("debate_session="))
+  ?.slice("debate_session=".length);
+
 const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : readSessionCookie(req.headers.cookie);
 
     if (!token) {
       return res
