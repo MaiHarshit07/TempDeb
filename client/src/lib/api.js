@@ -1,7 +1,20 @@
 import axios from "axios";
 
+const resolveApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return `${window.location.origin.replace(/\/$/, "")}/api`;
+    }
+  }
+
+  return "http://localhost:5000/api";
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: resolveApiBaseUrl(),
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
@@ -88,7 +101,10 @@ export async function fetchTopic(id, { fresh = false } = {}) {
 }
 
 export async function fetchComments(topicId, stance, commentId) {
-  const params = { ...(stance ? { stance } : {}), ...(commentId ? { commentId } : {}) };
+  const params = {
+    ...(stance ? { stance } : {}),
+    ...(commentId ? { commentId } : {}),
+  };
   return cachedRequest(
     `comments:${topicId}:${stance || "all"}:${commentId || "root"}`,
     async () => {
